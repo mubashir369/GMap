@@ -25,6 +25,7 @@ function App() {
   const [directionsResponse,setDirectionsResponse]=useState(null)
   const [distance,setDestance]=useState('')
   const [duration,setDuration]=useState('')
+  const [durations,setDurations]=useState([])
   const originRef=useRef()
   const destinationRef=useRef()
 
@@ -74,21 +75,34 @@ function App() {
     }
   };
  
-  async function calculateRoute(){
-   
-    if(originRef.current.value==''||destinationRef.current.value==''){
-      return 
+  async function calculateRoute() {
+    if (originRef.current.value === '' || destinationRef.current.value === '') {
+      return;
     }
-    const directionsService=new window.google.maps.DirectionsService()
-    
-    const results=await directionsService.route({
-      origin:originRef.current.value,
-      destination:destinationRef.current.value,
-      travelMode:window.google.maps.TravelMode.DRIVING
-    })
-    setDirectionsResponse(results)
-    setDestance(results.routes[0].legs[0].distance.text)
-    setDuration(results.routes[0].legs[0].duration.text)
+  
+    const directionsService = new window.google.maps.DirectionsService();
+    const modes = [
+      window.google.maps.TravelMode.DRIVING,
+      window.google.maps.TravelMode.TWO_WHEELER,
+      window.google.maps.TravelMode.WALKING,
+    ];
+  
+    const resultsPromises = modes.map((mode) =>
+      directionsService.route({
+        origin: originRef.current.value,
+        destination: destinationRef.current.value,
+        travelMode: mode,
+      })
+    );
+  
+    const results = await Promise.all(resultsPromises);
+    const durations = results.map((result) => result.routes[0].legs[0].duration.text);
+  
+    setDirectionsResponse(results[0]); // Set directions for car mode
+    setDestance(results[0].routes[0].legs[0].distance.text); // Set distance for car mode
+    setDuration(durations[0])
+    console.log("durationsdurations",durations);
+    setDurations(durations); // Set durations for car, bike, walk modes
   }
   function clearRoute(){
     setDirectionsResponse(null)
@@ -163,7 +177,9 @@ function App() {
         </HStack>
         <HStack spacing={4} mt={4} justifyContent="space-between">
           <Text>Distance: {distance} </Text>
-          <Text>Duration: {duration} </Text>
+          <Text>Duration (CAR): {durations[0]} </Text>
+          <Text>Duration (BIKE) : {durations[1]} </Text>
+          <Text>Duration (WALKING) : {durations[2]} </Text>
           <IconButton
             aria-label="center back"
             icon={<FaLocationArrow />}
