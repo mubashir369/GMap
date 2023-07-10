@@ -11,8 +11,7 @@ import {
 } from "@chakra-ui/react";
 import { FaLocationArrow, FaTimes } from "react-icons/fa";
 import { useJsApiLoader, GoogleMap,Marker,Autocomplete,DirectionsRenderer } from "@react-google-maps/api";
-import { useRef, useState } from "react";
-const center={ lat: 10.850516, lng: 76.27108 }
+import { useEffect, useRef, useState } from "react";
 function App() {
  
   const { isLoaded } = useJsApiLoader({
@@ -22,6 +21,7 @@ function App() {
     ]
   });
   const [Map, setMap] = useState(/** @type google.maps.Map */ (null));
+  const [center,setCenter]=useState({ lat: 10.850516, lng: 76.27108 })
   const [directionsResponse,setDirectionsResponse]=useState(null)
   const [distance,setDestance]=useState('')
   const [duration,setDuration]=useState('')
@@ -31,12 +31,56 @@ function App() {
   if (!isLoaded) {
     return <SkeletonText />;
   }
+
+  function getCurrentLatLog(){
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          setCenter({
+            lat:latitude,
+            lng:longitude
+          })
+          console.log("Latitude:", latitude);
+          console.log("Longitude:", longitude);
+        },
+        (error) => {
+          console.error("Error getting geolocation:", error);
+        }
+      );
+    } else {
+      console.error("Geolocation is not supported by this browser");
+    }
+  }
+  const fetchGeolocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          // setLatitude(latitude);
+          // setLongitude(longitude);
+          setCenter({
+            lat:latitude,
+            lng:longitude
+          })
+        },
+        (error) => {
+          console.error("Error getting geolocation:", error);
+        }
+      );
+    } else {
+      console.error("Geolocation is not supported by this browser");
+    }
+  };
+ 
   async function calculateRoute(){
-    console.log("ddsdsadjsakdjsakdj");
+   
     if(originRef.current.value==''||destinationRef.current.value==''){
       return 
     }
     const directionsService=new window.google.maps.DirectionsService()
+    
     const results=await directionsService.route({
       origin:originRef.current.value,
       destination:destinationRef.current.value,
@@ -53,6 +97,7 @@ function App() {
     originRef.current.value=''
     destinationRef.current.value=''
   }
+ 
   return (
     <Flex
       position="relative"
@@ -123,7 +168,10 @@ function App() {
             aria-label="center back"
             icon={<FaLocationArrow />}
             isRound
-            onClick={() => Map.panTo(center)}
+            onClick={() =>{
+              fetchGeolocation()
+              Map.panTo(center) 
+            }}
           />
         </HStack>
       </Box>
