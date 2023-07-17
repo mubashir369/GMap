@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
-  ButtonGroup,
   Flex,
   HStack,
   IconButton,
@@ -17,6 +16,7 @@ import {
   Marker,
   Autocomplete,
   DirectionsRenderer,
+  OverlayView,
 } from "@react-google-maps/api";
 
 function App() {
@@ -32,6 +32,7 @@ function App() {
   const [duration, setDuration] = useState("");
   const [durations, setDurations] = useState([]);
   const [trafficResponse, setTrafficResponse] = useState([]);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(null);
 
   const originRef = useRef();
   const destinationRef = useRef();
@@ -95,22 +96,7 @@ function App() {
     setDuration(durations[0]);
     setDurations(durations);
 
-    const trafficResultPromises = modes.map((mode) =>
-      directionsService.route({
-        origin: originRef.current.value,
-        destination: destinationRef.current.value,
-        travelMode: mode,
-        avoidTolls: true,
-        avoidHighways: true,
-        provideRouteAlternatives: true,
-      })
-    );
-
-    const trafficResults = await Promise.all(trafficResultPromises);
-
-    const trafficRoutes = trafficResults.map((result) => result);
-
-    setTrafficResponse(trafficRoutes);
+    setTrafficResponse(results);
   }
 
   function clearRoute() {
@@ -119,15 +105,12 @@ function App() {
     setDuration("");
     originRef.current.value = "";
     destinationRef.current.value = "";
+    setSelectedRouteIndex(null);
   }
-console.log("ddddddddddsdsds",trafficResponse);
-  function selectRoute(routeIndex) {
-    setDirectionsResponse(trafficResponse[routeIndex]);
 
-    const selectedRoute = trafficResponse[routeIndex];
-    const selectedDuration = selectedRoute.routes[0].legs[0].duration.text;
-
-    setDuration(selectedDuration);
+  function handleRouteClick(index) {
+    setSelectedRouteIndex(index);
+    setDuration(durations[index]);
   }
 
   return (
@@ -154,6 +137,59 @@ console.log("ddddddddddsdsds",trafficResponse);
           {directionsResponse && (
             <DirectionsRenderer directions={directionsResponse} />
           )}
+          {trafficResponse.map((result, index) => (
+            <React.Fragment key={index}>
+              {result && (
+                <React.Fragment>
+                  <DirectionsRenderer
+                    directions={result}
+                    options={{
+                      suppressMarkers: true,
+                      preserveViewport: true,
+                      polylineOptions: {
+                        strokeColor:
+                          index === selectedRouteIndex ? "#00FF00" : "#888888",
+                        strokeOpacity: 0.7,
+                        strokeWeight: 5,
+                      },
+                    }}
+                    onClick={() => handleRouteClick(index)}
+                  />
+                  {result.routes &&
+                    result.routes.length > 0 &&
+                    result.routes.map((route, routeIndex) => (
+                      <OverlayView
+                        key={`${index}-${routeIndex}`}
+                        position={route.legs[0].end_location}
+                        mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+                        getPixelPositionOffset={(width, height) => ({
+                          x: -width / 2,
+                          y: -height,
+                        })}
+                      >
+                        <Box
+                          bg="white"
+                          p={2}
+                          boxShadow="md"
+                          borderRadius="md"
+                          zIndex={index === selectedRouteIndex ? 1 : 0}
+                        >
+                          <Text fontWeight="bold" fontSize="sm">
+                            Route {index + 1}
+                          </Text>
+                          <Text fontSize="sm">
+                            Duration (Driving): {durations[index]}
+                          </Text>
+                          <Text fontSize="sm">
+                            Distance: {route.legs[0].distance.text}
+                          </Text>
+                        </Box>
+                      </OverlayView>
+                    ))}
+                </React.Fragment>
+              )}
+            </React.Fragment>
+          ))}
         </GoogleMap>
       </Box>
 
@@ -169,8 +205,8 @@ console.log("ddddddddddsdsds",trafficResponse);
         <HStack spacing={4}>
           <Autocomplete
             onLoad={(autocomplete) => {
-              autocomplete.setComponentRestrictions({ country: "in" }); // Restrict search to India
-              autocomplete.setTypes(["(cities)"]); // Restrict search to cities
+              autocomplete.setComponentRestrictions({ country: "in" });
+              autocomplete.setTypes(["(cities)"]);
             }}
             onPlaceChanged={() => {
               const place = originRef.current.getPlace();
@@ -187,8 +223,8 @@ console.log("ddddddddddsdsds",trafficResponse);
 
           <Autocomplete
             onLoad={(autocomplete) => {
-              autocomplete.setComponentRestrictions({ country: "in" }); // Restrict search to India
-              autocomplete.setTypes(["(cities)"]); // Restrict search to cities
+              autocomplete.setComponentRestrictions({ country: "in" });
+              autocomplete.setTypes(["(cities)"]);
             }}
             onPlaceChanged={() => {
               const place = destinationRef.current.getPlace();
@@ -207,26 +243,21 @@ console.log("ddddddddddsdsds",trafficResponse);
             />
           </Autocomplete>
 
-          <ButtonGroup>
-            <Button
-              colorScheme="pink"
-              type="submit"
-              onClick={calculateRoute}
-            >
-              Calculate Route
-            </Button>
-            <IconButton
-              aria-label="center back"
-              icon={<FaTimes />}
-              onClick={clearRoute}
-            />
-          </ButtonGroup>
+          <Button colorScheme="pink" type="submit" onClick={calculateRoute}>
+            Calculate Route
+          </Button>
+          <IconButton
+            aria-label="center back"
+            icon={<FaTimes />}
+            onClick={clearRoute}
+          />
         </HStack>
+
         <HStack spacing={4} mt={4} justifyContent="space-between">
           <Text>Distance: {distance} </Text>
           <Text>Duration (CAR): {durations[0]} </Text>
-          <Text>Duration (BIKE) : {durations[1]} </Text>
-          <Text>Duration (WALKING) : {durations[2]} </Text>
+          <Text>Duration (BIKE): {durations[1]} </Text>
+          <Text>Duration (WALKING): {durations[2]} </Text>
           <IconButton
             aria-label="center back"
             icon={<FaLocationArrow />}
@@ -234,22 +265,6 @@ console.log("ddddddddddsdsds",trafficResponse);
             onClick={getCurrentLatLog}
           />
         </HStack>
-
-        {trafficResponse.length > 0 && (
-          <Flex direction="column" mt={4}>
-            <Text fontWeight="bold">Alternate Routes:</Text>
-            {trafficResponse.map((result, index) => (
-              <Button
-                key={index}
-                onClick={() => selectRoute(index)}
-                mt={2}
-                colorScheme="teal"
-              >
-                Route {index + 1}
-              </Button>
-            ))}
-          </Flex>
-        )}
       </Box>
     </Flex>
   );
