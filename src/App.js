@@ -16,13 +16,13 @@ import {
   Marker,
   Autocomplete,
   DirectionsRenderer,
-  OverlayView,
+  Polyline,
 } from "@react-google-maps/api";
 
 function App() {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-    libraries: ["places"],
+    libraries: ['places'],
   });
 
   const [Map, setMap] = useState(null);
@@ -36,10 +36,6 @@ function App() {
 
   const originRef = useRef();
   const destinationRef = useRef();
-
-  if (!isLoaded) {
-    return <SkeletonText />;
-  }
 
   function getCurrentLatLog() {
     if (navigator.geolocation) {
@@ -107,10 +103,15 @@ function App() {
     destinationRef.current.value = "";
     setSelectedRouteIndex(null);
   }
-
+  
   function handleRouteClick(index) {
     setSelectedRouteIndex(index);
+    setDirectionsResponse(trafficResponse[index]);
     setDuration(durations[index]);
+  }
+
+  if (!isLoaded) {
+    return <SkeletonText />;
   }
 
   return (
@@ -139,54 +140,17 @@ function App() {
           )}
           {trafficResponse.map((result, index) => (
             <React.Fragment key={index}>
-              {result && (
-                <React.Fragment>
-                  <DirectionsRenderer
-                    directions={result}
-                    options={{
-                      suppressMarkers: true,
-                      preserveViewport: true,
-                      polylineOptions: {
-                        strokeColor:
+              {result && result.routes && result.routes.length > 0 && (
+                <Polyline
+                  path={result.routes[0].overview_path}
+                  options={{
+                    strokeColor:
                           index === selectedRouteIndex ? "#00FF00" : "#888888",
-                        strokeOpacity: 0.7,
-                        strokeWeight: 5,
-                      },
-                    }}
-                    onClick={() => handleRouteClick(index)}
-                  />
-                  {result.routes &&
-                    result.routes.length > 0 &&
-                    result.routes.map((route, routeIndex) => (
-                      <OverlayView
-                        key={`${index}-${routeIndex}`}
-                        position={route.legs[0].end_location}
-                        mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-                        getPixelPositionOffset={(width, height) => ({
-                          x: -width / 2,
-                          y: -height,
-                        })}
-                      >
-                        <Box
-                          bg="white"
-                          p={2}
-                          boxShadow="md"
-                          borderRadius="md"
-                          zIndex={index === selectedRouteIndex ? 1 : 0}
-                        >
-                          <Text fontWeight="bold" fontSize="sm">
-                            Route {index + 1}
-                          </Text>
-                          <Text fontSize="sm">
-                            Duration (Driving): {durations[index]}
-                          </Text>
-                          <Text fontSize="sm">
-                            Distance: {route.legs[0].distance.text}
-                          </Text>
-                        </Box>
-                      </OverlayView>
-                    ))}
-                </React.Fragment>
+                    strokeOpacity: 0.7,
+                    strokeWeight: 5,
+                  }}
+                  onClick={() => handleRouteClick(index)}
+                />
               )}
             </React.Fragment>
           ))}
